@@ -1,0 +1,29 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.canvas-container {
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+}
+
+canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.leva__root {
+  position: fixed !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: rgba(20, 20, 20, 0.9) !important;
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 100;
+}
