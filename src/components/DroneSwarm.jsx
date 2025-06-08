@@ -204,18 +204,20 @@ const DroneSwarm = forwardRef(function DroneSwarm({
     const count = targetPositions.current.length
     const formationCenter = new THREE.Vector3()
 
-    // Step 1: Calculate the center of the current formation
     for (let i = 0; i < count; i++) {
       formationCenter.add(targetPositions.current[i])
     }
     formationCenter.divideScalar(count)
 
-    // Step 2: Offset all drones to preserve formation but move to new target point
     for (let i = 0; i < count; i++) {
+      const originalY = targetPositions.current[i].y
       const relativeOffset = targetPositions.current[i].clone().sub(formationCenter)
-      targetPositions.current[i] = targetPoint.clone().add(relativeOffset)
+      const newPos = targetPoint.clone().add(relativeOffset)
+      newPos.y = originalY // Preserve original Y
+      targetPositions.current[i] = newPos
     }
   }
+
 
   useFrame(() => {
     if (!meshRef.current || targetPositions.current.length === 0) return
