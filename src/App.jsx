@@ -2,6 +2,8 @@ import React, { useRef, useState, useEffect } from 'react'
 import { Canvas, useThree, useFrame} from '@react-three/fiber'
 import { Stats, OrbitControls } from '@react-three/drei'
 import DroneSwarm from './components/DroneSwarm'
+import DroneHUD from './components/DroneHUD'
+import TargetMarker from './components/TargetMarker'
 import { Leva, useControls } from 'leva'
 import * as THREE from 'three'
 import { Sky, Grid  } from '@react-three/drei'
@@ -9,6 +11,34 @@ import { createDroneGeometry } from './utils/createDroneGeometry'
 import './App.css'
 
 const loadingTime = 3000
+
+function ClickHandler({ onClickInScene }) {
+  const { camera, scene, gl } = useThree()
+
+  useEffect(() => {
+    const handleClick = (event) => {
+      const bounds = gl.domElement.getBoundingClientRect()
+      const mouse = new THREE.Vector2(
+        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+        -((event.clientY - bounds.top) / bounds.height) * 2 + 1
+      )
+
+      const raycaster = new THREE.Raycaster()
+      raycaster.setFromCamera(mouse, camera)
+
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) // Y = 0 plane
+      const point = new THREE.Vector3()
+      raycaster.ray.intersectPlane(plane, point)
+
+      onClickInScene(point)
+    }
+
+    gl.domElement.addEventListener('dblclick', handleClick)
+    return () => gl.domElement.removeEventListener('dblclick', handleClick)
+  }, [camera, gl, onClickInScene])
+
+  return null
+}
 
 function CameraController({ view, droneCount, dronePositions, povMode, povIndex }) {
   const controlsRef = useRef()
@@ -100,6 +130,7 @@ export default function App() {
   const [povIndex, setPovIndex] = useState(0)
   const [dronePositions, setDronePositions] = useState([])
   const [telemetry, setTelemetry] = useState([])
+  const [targetPoint, setTargetPoint] = useState()
   const swarmRef = useRef()
   const cameraRef = useRef()
 
@@ -216,7 +247,10 @@ export default function App() {
         />
         <ambientLight intensity={ambientInensity} />
         <directionalLight position={[pLightX, pLightY, pLightZ]} intensity={dIntensiity} />
+        <ClickHandler onClickInScene={(point) => setTargetPoint(point)} />
+        <TargetMarker position={targetPoint} />
         <DroneSwarm
+          targetPoint={targetPoint}
           color={color}
           roughness={roughness}
           metalness={metalness}
@@ -257,6 +291,25 @@ export default function App() {
       </Canvas>
 
        {telemetry[povIndex] && (
+        <>
+        <div className="insturctions-box">
+          <h4>Welcome! 🚀</h4>
+          <p>The app accepts normal orbial 3D controls</p>
+          <p>Use the side conrols to change:</p>
+          <ul>
+            <li>Count</li>
+            <li>Formation</li>
+            <li>Default Camera View</li>
+            <li>Drone Material Detials</li>
+            <li>& Lighting Detials</li>
+          </ul>
+          <p>Below you will see:</p>
+          <ul>
+            <li>POV camera toggle</li>
+            <li>& Drone Telemetry</li>
+          </ul> 
+          <p>Double Click to Mark a POI 📍</p>
+        </div>
         <div className="telemetry-box">
           <h4>Drone #</h4> 
           <input type='number' min='0' max={count-1} step='1' value={povIndex} 
@@ -279,12 +332,10 @@ export default function App() {
           <button style={{marginLeft:'.35rem'}} onClick={()=>setPovMode(!povMode)}>{povMode ? 'Exit' : 'Enter'} POV Mode</button>
           
           <button onClick={()=>povIndex-1  < 0 ? null : setPovIndex(povIndex-1)} style={{marginLeft:'5.5rem'}}>Back</button>
-          <button onClick={()=>povIndex+1  > count ? null :setPovIndex(povIndex+1)} style={{marginLeft:'1rem'}}>Forward</button>
-          <br/>
-          <br/>
-          <h4>Drone {povIndex} Telemetry:</h4>
-          <pre>{JSON.stringify(telemetry[povIndex], null, 2)}</pre>
+          <button onClick={()=>povIndex+1  > count ? null :setPovIndex(povIndex+1)} style={{marginLeft:'1rem'}}>Forward</button>          
         </div>
+        <DroneHUD telemetry={telemetry[povIndex]}/>
+        </>
       )}
     </div>
     </>

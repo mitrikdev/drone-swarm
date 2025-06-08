@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { createDroneGeometry } from '../utils/createDroneGeometry'
 
 const DroneSwarm = forwardRef(function DroneSwarm({
+  targetPoint,
   color,
   roughness,
   metalness,
@@ -24,6 +25,7 @@ const DroneSwarm = forwardRef(function DroneSwarm({
   const [geometry] = useState(() => createDroneGeometry())
   const targetPositions = useRef([])
   const currentPositions = useRef([])
+  const battSignal = useRef([])
   const activeFlags = useRef([])
   const OFFSCREEN_ORIGIN = new THREE.Vector3(200, -100, 200)
   const [prevCount, setPrevCount] = useState(initialCount)
@@ -32,14 +34,19 @@ const DroneSwarm = forwardRef(function DroneSwarm({
     getDronePosition: (index) => currentPositions.current[index]?.clone()
   }))
 
+
   useEffect(() => {
     const newPositions = []
+    const newBattSignlas = []
     const active = []
     const cols = Math.ceil(Math.sqrt(initialCount))
     const rows = Math.ceil(initialCount / cols)
+    
 
     for (let i = 0; i < initialCount; i++) {
       let x = 0, y = 5, z = 0
+      
+      newBattSignlas.push({battery:(100 - Math.random()*20).toFixed(2), signal:(100 - Math.random()*20).toFixed(2)})
 
       switch (formation) {
         case 'grid': {
@@ -94,6 +101,7 @@ const DroneSwarm = forwardRef(function DroneSwarm({
           }
 
           targetPositions.current = newPositions
+          battSignal.current = newPositions
 
           const nextCurrent = []
           for (let i = 0; i < initialCount; i++) {
@@ -187,8 +195,27 @@ const DroneSwarm = forwardRef(function DroneSwarm({
     }
 
     currentPositions.current = nextCurrent
+    battSignal.current = newBattSignlas
+
     setPrevCount(initialCount)
   }, [formation, initialCount, deltaGroupSize])
+
+  if (targetPoint) {
+    const count = targetPositions.current.length
+    const formationCenter = new THREE.Vector3()
+
+    // Step 1: Calculate the center of the current formation
+    for (let i = 0; i < count; i++) {
+      formationCenter.add(targetPositions.current[i])
+    }
+    formationCenter.divideScalar(count)
+
+    // Step 2: Offset all drones to preserve formation but move to new target point
+    for (let i = 0; i < count; i++) {
+      const relativeOffset = targetPositions.current[i].clone().sub(formationCenter)
+      targetPositions.current[i] = targetPoint.clone().add(relativeOffset)
+    }
+  }
 
   useFrame(() => {
     if (!meshRef.current || targetPositions.current.length === 0) return
@@ -218,6 +245,7 @@ const DroneSwarm = forwardRef(function DroneSwarm({
     for (let i = 0; i < targetPositions.current.length; i++) {
       const target = targetPositions.current[i]
       const current = currentPositions.current[i]
+      const battSignalCurrent = battSignal.current[i]
       if (!target || !current) continue
 
       current.lerp(target, 0.015)
@@ -227,7 +255,9 @@ const DroneSwarm = forwardRef(function DroneSwarm({
 
       telemetry.push({
         id: i,
-        position: { x: (current.x).toFixed(5), y: (current.y).toFixed(5), z: (current.z).toFixed(5) }
+        position: { x: (current.x).toFixed(5), y: (current.y).toFixed(5), z: (current.z).toFixed(5) },
+        signal:battSignalCurrent?.signal,
+        battery:battSignalCurrent?.battery
       })
     }
 
