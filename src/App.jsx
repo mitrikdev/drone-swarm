@@ -1,10 +1,14 @@
 import React, { useRef, useState, useEffect } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { Canvas, useThree, useFrame} from '@react-three/fiber'
+import { Stats, OrbitControls } from '@react-three/drei'
 import DroneSwarm from './components/DroneSwarm'
 import { Leva, useControls } from 'leva'
 import * as THREE from 'three'
+import { Sky, Grid  } from '@react-three/drei'
+import { createDroneGeometry } from './utils/createDroneGeometry'
 import './App.css'
+
+const loadingTime = 3000
 
 function CameraController({ view, droneCount, dronePositions, povMode, povIndex }) {
   const controlsRef = useRef()
@@ -58,8 +62,36 @@ function CameraController({ view, droneCount, dronePositions, povMode, povIndex 
   return <OrbitControls ref={controlsRef} />
 }
 
+function LoadingDroneMesh() {
+  const meshRef = useRef()
+  const [geometry] = useState(() => createDroneGeometry())
+
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.rotation.y += 0.02
+      meshRef.current.rotation.x = Math.sin(performance.now() / 500) * 0.4
+    }
+  })
+
+  return (
+    <mesh ref={meshRef} geometry={geometry}>
+      <meshStandardMaterial color="#f0f0f0" metalness={0.5} roughness={0.2} />
+    </mesh>
+  )
+}
+
+function LoadingDroneScene() {
+  return (
+    <Canvas camera={{ fov: 50, position: [0, 0, 10] }}>
+      <ambientLight />
+      <directionalLight position={[10, 10, 5]} intensity={1} />
+      <LoadingDroneMesh />
+    </Canvas>
+  )
+}
 
 export default function App() {
+  const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(100)
   const [formation, setFormation] = useState('grid')
   const [deltaGroupSize, setDeltaGroupSize] = useState(25)
@@ -67,14 +99,26 @@ export default function App() {
   const [povMode, setPovMode] = useState(false)
   const [povIndex, setPovIndex] = useState(0)
   const [dronePositions, setDronePositions] = useState([])
+  const [telemetry, setTelemetry] = useState([])
   const swarmRef = useRef()
   const cameraRef = useRef()
 
-  const { droneCount, formationType, deltaGroupCount, cameraView, dronePOV, povTarget} = useControls({
+  useEffect(() => {
+    const timeout = setTimeout(() => setLoading(false), loadingTime)
+    return () => clearTimeout(timeout)
+  }, [])
+
+  const { droneCount, formationType, deltaGroupCount, cameraView, /*dronePOV*/ /*, povTarget,*/ color, 
+    roughness,
+    metalness,
+    clearcoat,
+    emissive,
+    emissiveIntensity,
+  } = useControls({
     droneCount: {
       value: count,
       min: 1,
-      max: 500,
+      max: 529,
       step: 1,
       onChange: setCount
     },
@@ -95,27 +139,90 @@ export default function App() {
       value: view,
       onChange: setView
     },
-    dronePOV: {
+    /*dronePOV: {
       value: false,
       onChange: setPovMode
-    },
-    povTarget: {
-      value: count-count,
-      min: 0,
-      max: count - 1 ,
-      step: 1,
-      onChange: setPovIndex
-    }
+    },*/
+    // "Drone #": {
+    //   value: count-count,
+    //   min: 0,
+    //   max: count - 1 ,
+    //   step: 1,
+    //   onChange: setPovIndex
+    // }
+    color: { value: '#f0f0f0' },
+    roughness: {  
+                  min: 0,
+                  max: 1,
+                  step: .1,
+                  value: 0.3 
+               },
+    metalness: {  
+                  min: 0,
+                  max: 1,
+                  step: .1,
+                  value: 0.4 
+               },
+    clearcoat: {  
+                  min: 0,
+                  max: 1,
+                  step: .1,
+                  value: 1 
+               },
+    emissive: { value: '#222222' },
+    emissiveIntensity: {  
+                  min: 0,
+                  max: 1,
+                  step: .01,
+                  value: 0.05 
+               },
   },[count])
 
+  const {ambientInensity,
+  pLightX,
+  pLightY,
+  pLightZ,
+  dIntensiity} = useControls({
+    ambientInensity : { value:0.5, min:0, max:10, step:0.1},
+    pLightX : { value:10, min:-100, max:100, step:10},
+    pLightY : { value:20, min:-100, max:100, step:10},
+    pLightZ : { value:10, min:-100, max:100, step:10},
+    dIntensiity : { value:1.2, min:0, max:100, step:0.1},
+  })
 
-  return (
+  const handleTelemetryUpdate = (data) => {
+    setTelemetry(data)
+  }
+
+
+  return (<>
+    {loading && 
     <div className="canvas-container">
-      <Leva collapsed={false} />
+      <LoadingDroneScene />
+    </div>}
+
+    <div className="canvas-container">
+    <Leva collapsed={false} />
+
+
       <Canvas onCreated={({ camera }) => (cameraRef.current = camera)} camera={{ fov: 50, near: 0.1, far: 2000}}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 20, 10]} intensity={1.2} />
+        <Sky 
+          sunPosition={[500, -20, 0]} 
+          distance={450000} 
+          turbidity={8} 
+          rayleigh={6} 
+          mieCoefficient={0.005} 
+          mieDirectionalG={0.7}
+        />
+        <ambientLight intensity={ambientInensity} />
+        <directionalLight position={[pLightX, pLightY, pLightZ]} intensity={dIntensiity} />
         <DroneSwarm
+          color={color}
+          roughness={roughness}
+          metalness={metalness}
+          clearcoat={clearcoat}
+          emissive={emissive}
+          emissiveIntensity={emissiveIntensity}
           ref={swarmRef}
           initialCount={count}
           formation={formation}
@@ -124,6 +231,7 @@ export default function App() {
           cameraRef={cameraRef}
           povMode={povMode}
           povIndex={povIndex}
+          onTelemetryUpdate={handleTelemetryUpdate}
         />
         <CameraController
           view={view}
@@ -132,7 +240,53 @@ export default function App() {
           povMode={povMode}
           povIndex={povIndex}
         />
+        <group position={[0, 0, 0]}>
+          <axesHelper args={[135]} />
+        </group>
+        <Grid 
+          position={[0, 0, 0]} 
+          args={[500, 500]}  // [width, height]
+          cellSize={5}      // bigger = coarser grain
+          cellThickness={1}
+          sectionSize={20}
+          sectionThickness={2}
+          fadeDistance={500}
+          fadeStrength={2}
+        />
+        <Stats />
       </Canvas>
+
+       {telemetry[povIndex] && (
+        <div className="telemetry-box">
+          <h4>Drone #</h4> 
+          <input type='number' min='0' max={count-1} step='1' value={povIndex} 
+          onChange={e=>{
+                let d = (e.target.value).toString()
+                if (/^0\d+/.test(d)) {
+                  d = d.replace(/^0+/, '')
+                }
+                
+                if(!/^\d+$/.test(d) || d > count-1){
+
+                  setPovIndex(povIndex) 
+                } 
+                else{
+                  setPovIndex(d)
+                }
+                }
+              }
+            />
+          <button style={{marginLeft:'.35rem'}} onClick={()=>setPovMode(!povMode)}>{povMode ? 'Exit' : 'Enter'} POV Mode</button>
+          
+          <button onClick={()=>povIndex-1  < 0 ? null : setPovIndex(povIndex-1)} style={{marginLeft:'5.5rem'}}>Back</button>
+          <button onClick={()=>povIndex+1  > count ? null :setPovIndex(povIndex+1)} style={{marginLeft:'1rem'}}>Forward</button>
+          <br/>
+          <br/>
+          <h4>Drone {povIndex} Telemetry:</h4>
+          <pre>{JSON.stringify(telemetry[povIndex], null, 2)}</pre>
+        </div>
+      )}
     </div>
+    </>
   )
 }

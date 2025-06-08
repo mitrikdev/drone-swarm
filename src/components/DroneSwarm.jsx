@@ -4,12 +4,19 @@ import * as THREE from 'three'
 import { createDroneGeometry } from '../utils/createDroneGeometry'
 
 const DroneSwarm = forwardRef(function DroneSwarm({
+  color,
+  roughness,
+  metalness,
+  clearcoat,
+  emissive,
+  emissiveIntensity,
   initialCount = 100,
   formation = 'cube',
   deltaGroupSize = 25,
   cameraRef,
   povMode,
-  povIndex
+  povIndex,
+  onTelemetryUpdate 
 }, ref) {
   const spacing = 8
   const meshRef = useRef()
@@ -206,6 +213,30 @@ const DroneSwarm = forwardRef(function DroneSwarm({
     meshRef.current.count = count
     meshRef.current.instanceMatrix.needsUpdate = true
 
+    const telemetry = []
+
+    for (let i = 0; i < targetPositions.current.length; i++) {
+      const target = targetPositions.current[i]
+      const current = currentPositions.current[i]
+      if (!target || !current) continue
+
+      current.lerp(target, 0.015)
+      dummy.position.copy(current)
+      dummy.updateMatrix()
+      meshRef.current.setMatrixAt(i, dummy.matrix)
+
+      telemetry.push({
+        id: i,
+        position: { x: (current.x).toFixed(5), y: (current.y).toFixed(5), z: (current.z).toFixed(5) }
+      })
+    }
+
+    meshRef.current.instanceMatrix.needsUpdate = true
+
+    if (onTelemetryUpdate) {
+      onTelemetryUpdate(telemetry)
+    }
+
     if (povMode && cameraRef?.current) {
       const target = currentPositions.current[povIndex]
       if (target) {
@@ -221,18 +252,19 @@ const DroneSwarm = forwardRef(function DroneSwarm({
   })
 
   return (<>
-      {/* <mesh position={currentPositions.current[povIndex]}>
+      {/* //helper cube
+      <mesh position={currentPositions.current[povIndex]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="hotpink" />
       </mesh> */}
       <instancedMesh ref={meshRef} args={[geometry, null, 1000]} frustumCulled={false}>
         <meshStandardMaterial
-          color="#f0f0f0"
-          roughness={0.3}
-          metalness={0.4}
-          clearcoat={1}
-          emissive="#222"
-          emissiveIntensity={0.05}
+          color={color}
+          roughness={roughness}
+          metalness={metalness}
+          clearcoat={clearcoat}
+          emissive={emissive}
+          emissiveIntensity={emissiveIntensity}
         />
       </instancedMesh>
     </>
