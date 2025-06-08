@@ -221,20 +221,20 @@ const DroneSwarm = forwardRef(function DroneSwarm({
   })
 
   return (<>
-      <mesh position={currentPositions.current[povIndex]}>
+      {/* <mesh position={currentPositions.current[povIndex]}>
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color="hotpink" />
-      </mesh>
-    <instancedMesh ref={meshRef} args={[geometry, null, 1000]} frustumCulled={false}>
-      <meshStandardMaterial
-        color="#f0f0f0"
-        roughness={0.3}
-        metalness={0.4}
-        clearcoat={1}
-        emissive="#222"
-        emissiveIntensity={0.05}
-      />
-    </instancedMesh>
+      </mesh> */}
+      <instancedMesh ref={meshRef} args={[geometry, null, 1000]} frustumCulled={false}>
+        <meshStandardMaterial
+          color="#f0f0f0"
+          roughness={0.3}
+          metalness={0.4}
+          clearcoat={1}
+          emissive="#222"
+          emissiveIntensity={0.05}
+        />
+      </instancedMesh>
     </>
   )
 })
