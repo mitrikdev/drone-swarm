@@ -64,7 +64,7 @@ export default function App() {
       onChange: setCount
     },
     formationType: {
-      options: ['x-line', 'y-line', 'z-line', 'grid', 'delta', 'circle', 'spiral', 'cube', 'sphere','anduril'],
+      options: ['x-line', 'y-line', 'z-line', 'grid', 'delta', 'circle', 'spiral', 'cube', 'sphere'],
       value: formation,
       onChange: setFormation
     },
