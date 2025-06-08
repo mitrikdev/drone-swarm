@@ -1,13 +1,16 @@
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { createDroneGeometry } from '../utils/createDroneGeometry'
 
-export default function DroneSwarm({
+const DroneSwarm = forwardRef(function DroneSwarm({
   initialCount = 100,
   formation = 'cube',
-  deltaGroupSize = 25
-}) {
+  deltaGroupSize = 25,
+  cameraRef,
+  povMode,
+  povIndex
+}, ref) {
   const spacing = 8
   const meshRef = useRef()
   const dummy = new THREE.Object3D()
@@ -18,48 +21,9 @@ export default function DroneSwarm({
   const OFFSCREEN_ORIGIN = new THREE.Vector3(200, -100, 200)
   const [prevCount, setPrevCount] = useState(initialCount)
 
-
-function sampleSvgPathPoints(svgPath, numPoints, scale = 0.15, y = 5) {
-  const commands = svgPath.match(/[a-df-z][^a-df-z]*/ig)
-  if (!commands) return []
-
-  let points = []
-  let x = 0, z = 0
-  for (let cmd of commands) {
-    const type = cmd[0]
-    const args = cmd.slice(1).trim().split(/[\s,]+/).map(Number)
-    if (type === 'M' || type === 'L') {
-      for (let i = 0; i < args.length; i += 2) {
-        x = args[i]
-        z = args[i + 1]
-        points.push({ x: x * scale, y, z: z * scale })
-      }
-    } else if (type === 'h') {
-      for (let i = 0; i < args.length; i++) {
-        x += args[i]
-        points.push({ x: x * scale, y, z: z * scale })
-      }
-    } else if (type === 'v') {
-      for (let i = 0; i < args.length; i++) {
-        z += args[i]
-        points.push({ x: x * scale, y, z: z * scale })
-      }
-    }
-    // Add more command support as needed
-  }
-
-  if (points.length <= numPoints) return points.map(p => new THREE.Vector3(p.x, p.y, p.z))
-
-  // Downsample to match drone count
-  const step = points.length / numPoints
-  const sampled = []
-  for (let i = 0; i < numPoints; i++) {
-    const index = Math.floor(i * step)
-    const { x, y, z } = points[index]
-    sampled.push(new THREE.Vector3(x, y, z))
-  }
-  return sampled
-}
+  useImperativeHandle(ref, () => ({
+    getDronePosition: (index) => currentPositions.current[index]?.clone()
+  }))
 
   useEffect(() => {
     const newPositions = []
@@ -123,6 +87,7 @@ function sampleSvgPathPoints(svgPath, numPoints, scale = 0.15, y = 5) {
           }
 
           targetPositions.current = newPositions
+
           const nextCurrent = []
           for (let i = 0; i < initialCount; i++) {
             if (currentPositions.current[i]) {
@@ -185,7 +150,7 @@ function sampleSvgPathPoints(svgPath, numPoints, scale = 0.15, y = 5) {
           y = i * verticalStep + 5
           break
         }
-        
+
         default:
           break
       }
@@ -240,10 +205,27 @@ function sampleSvgPathPoints(svgPath, numPoints, scale = 0.15, y = 5) {
 
     meshRef.current.count = count
     meshRef.current.instanceMatrix.needsUpdate = true
+
+    if (povMode && cameraRef?.current) {
+      const target = currentPositions.current[povIndex]
+      if (target) {
+        const offset = new THREE.Vector3(0, -0.7, 0)
+        const cameraPos = target.clone().add(offset)
+
+        cameraRef.current.position.copy(cameraPos)
+        cameraRef.current.rotation.set(THREE.MathUtils.degToRad(15), THREE.MathUtils.degToRad(-180), 0)
+        // cameraRef.current.lookAt(target)
+      }
+    }
+
   })
 
-  return (
-    <instancedMesh ref={meshRef} args={[geometry, null, 1000]}>
+  return (<>
+      <mesh position={currentPositions.current[povIndex]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="hotpink" />
+      </mesh>
+    <instancedMesh ref={meshRef} args={[geometry, null, 1000]} frustumCulled={false}>
       <meshStandardMaterial
         color="#f0f0f0"
         roughness={0.3}
@@ -253,5 +235,8 @@ function sampleSvgPathPoints(svgPath, numPoints, scale = 0.15, y = 5) {
         emissiveIntensity={0.05}
       />
     </instancedMesh>
+    </>
   )
-}
+})
+
+export default DroneSwarm
